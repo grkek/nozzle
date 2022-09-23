@@ -21,7 +21,7 @@ BEGIN
                         'id', data.id);
     -- note that channel name MUST be lowercase, otherwise pg_notify() won't work
     -- Execute pg_notify(channel, notification)
-    PERFORM pg_notify('<%= @channel %>',notification::text);
+    PERFORM pg_notify('<%= database_channel %>',notification::text);
     -- Result is ignored since we are invoking this in an AFTER trigger
     RETURN NULL;
 END;
