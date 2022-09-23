@@ -1,0 +1,26 @@
+-- Instead of manually creating triggers for each table, create CDC Trigger For All tables with id column
+CREATE OR REPLACE FUNCTION public.create_cdc_for_all_tables() RETURNS void AS $$
+DECLARE
+  trigger_statement TEXT;
+BEGIN
+  FOR trigger_statement IN SELECT
+    'DROP TRIGGER IF EXISTS notify_change_event ON '
+    || tab_name || ';'
+    || 'CREATE TRIGGER notify_change_event AFTER INSERT OR UPDATE OR DELETE ON '
+    || tab_name
+    || ' FOR EACH ROW EXECUTE PROCEDURE public.notify_change();' AS trigger_creation_query
+  FROM (
+    SELECT
+      quote_ident(t.table_schema) || '.' || quote_ident(t.table_name) as tab_name
+    FROM
+      information_schema.tables t, information_schema.columns c
+    WHERE
+      t.table_schema NOT IN ('pg_catalog', 'information_schema')
+      AND t.table_schema NOT LIKE 'pg_toast%'
+      AND c.table_name = t.table_name AND c.column_name='id'
+  ) as TableNames
+  LOOP
+    EXECUTE  trigger_statement;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql;

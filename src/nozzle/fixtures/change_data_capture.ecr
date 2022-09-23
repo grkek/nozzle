@@ -1,0 +1,28 @@
+CREATE OR REPLACE FUNCTION public.notify_change() RETURNS TRIGGER AS $$
+DECLARE
+    data record;
+    notification json;
+BEGIN
+    -- Convert the old or new row to JSON, based on the kind of action.
+    -- Action = DELETE?             -> OLD row
+    -- Action = INSERT or UPDATE?   -> NEW row
+    IF (TG_OP = 'DELETE') THEN
+        data =  OLD;
+    ELSE
+        data =  NEW;
+    END IF;
+  -- Construct json payload
+  -- note that here can be done projection
+    notification = json_build_object(
+                        'timestamp',CURRENT_TIMESTAMP,
+                        'schema',TG_TABLE_SCHEMA,
+                        'table',TG_TABLE_NAME,
+                        'action', LOWER(TG_OP),
+                        'id', data.id);
+    -- note that channel name MUST be lowercase, otherwise pg_notify() won't work
+    -- Execute pg_notify(channel, notification)
+    PERFORM pg_notify('<%= @channel %>',notification::text);
+    -- Result is ignored since we are invoking this in an AFTER trigger
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
